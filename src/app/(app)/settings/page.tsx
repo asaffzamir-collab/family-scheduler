@@ -62,7 +62,7 @@ export default function SettingsPage() {
       setCalendars(calList);
       // Pre-check calendars that are already saved (main = null in API, use session email for key)
       const mainEmail = session?.user?.email ?? "main";
-      const savedKeys = new Set(
+      const savedKeys = new Set<string>(
         selection.map(
           (s: { google_calendar_id: string; account_email: string | null }) =>
             `${s.account_email ?? mainEmail}-${s.google_calendar_id}`
