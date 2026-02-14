@@ -37,6 +37,9 @@ export async function GET() {
   checks.environment.VERCEL = process.env.VERCEL ?? "not set";
   checks.environment.VERCEL_URL = process.env.VERCEL_URL ?? "not set";
   checks.environment.AUTH_TRUST_HOST = process.env.AUTH_TRUST_HOST ?? "not set";
+  // Show Supabase URL (public value, not sensitive) for debugging
+  checks.environment.SUPABASE_URL_VALUE = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "not set";
+  checks.environment.NEXTAUTH_URL_VALUE = process.env.NEXTAUTH_URL ?? "not set";
 
   // 2. Check Supabase connection
   try {
