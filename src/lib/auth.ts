@@ -29,55 +29,95 @@ export const authOptions: NextAuthOptions = {
 
   callbacks: {
     async signIn({ account, profile }) {
-      if (!account || !profile?.email) return false;
+      if (!account || !profile?.email) {
+        console.error("[SignIn] Missing account or profile email");
+        return false;
+      }
 
-      // Upsert user in Supabase
-      const { data: existingUser } = await supabaseAdmin
-        .from("users")
-        .select("id, family_id")
-        .eq("email", profile.email)
-        .limit(1)
-        .single();
-
-      if (existingUser) {
-        // Update tokens
-        await supabaseAdmin
+      try {
+        // Upsert user in Supabase
+        const { data: existingUser, error: fetchError } = await supabaseAdmin
           .from("users")
-          .update({
-            google_access_token: account.access_token,
-            google_refresh_token:
-              account.refresh_token || existingUser.family_id ? undefined : account.refresh_token,
-            name: profile.name || "",
-          })
-          .eq("id", existingUser.id);
-      } else {
-        // Create family + user + family_member
-        const { data: family } = await supabaseAdmin
-          .from("families")
-          .insert({ name: "Our Family" })
-          .select("id")
+          .select("id, family_id")
+          .eq("email", profile.email)
+          .limit(1)
           .single();
 
-        const { data: newUser } = await supabaseAdmin
-          .from("users")
-          .insert({
-            email: profile.email,
-            name: profile.name || "",
-            family_id: family?.id,
-            google_access_token: account.access_token,
-            google_refresh_token: account.refresh_token,
-          })
-          .select("id")
-          .single();
+        if (fetchError && fetchError.code !== "PGRST116") {
+          // PGRST116 = no rows returned (new user)
+          console.error("[SignIn] Database query error:", fetchError);
+          return false;
+        }
 
-        if (newUser && family) {
+        if (existingUser) {
+          // Update tokens - only update refresh_token if we have a new one
+          const updateData: {
+            google_access_token?: string;
+            google_refresh_token?: string;
+            name: string;
+          } = {
+            google_access_token: account.access_token,
+            name: profile.name || "",
+          };
+
+          // Only update refresh_token if we received a new one from Google
+          if (account.refresh_token) {
+            updateData.google_refresh_token = account.refresh_token;
+          }
+
+          const { error: updateError } = await supabaseAdmin
+            .from("users")
+            .update(updateData)
+            .eq("id", existingUser.id);
+
+          if (updateError) {
+            console.error("[SignIn] Failed to update user:", updateError);
+            return false;
+          }
+        } else {
+          // Create family + user + family_member
+          const { data: family, error: familyError } = await supabaseAdmin
+            .from("families")
+            .insert({ name: "Our Family" })
+            .select("id")
+            .single();
+
+          if (familyError || !family) {
+            console.error("[SignIn] Failed to create family:", familyError);
+            return false;
+          }
+
+          const { data: newUser, error: userError } = await supabaseAdmin
+            .from("users")
+            .insert({
+              email: profile.email,
+              name: profile.name || "",
+              family_id: family.id,
+              google_access_token: account.access_token,
+              google_refresh_token: account.refresh_token,
+            })
+            .select("id")
+            .single();
+
+          if (userError || !newUser) {
+            console.error("[SignIn] Failed to create user:", userError);
+            return false;
+          }
+
           // Create default family member for this adult
-          await supabaseAdmin.from("family_members").insert({
-            family_id: family.id,
-            user_id: newUser.id,
-            role: "adult",
-            display_name: profile.name || profile.email,
-          });
+          const { error: memberError } = await supabaseAdmin
+            .from("family_members")
+            .insert({
+              family_id: family.id,
+              user_id: newUser.id,
+              role: "adult",
+              display_name: profile.name || profile.email,
+            });
+
+          if (memberError) {
+            console.error("[SignIn] Failed to create family member:", memberError);
+            // Don't fail sign-in for this, just log it
+          }
 
           // Create default reminder rules
           const defaultRules = [
@@ -107,11 +147,22 @@ export const authOptions: NextAuthOptions = {
               ],
             },
           ];
-          await supabaseAdmin.from("reminder_rules").insert(defaultRules);
-        }
-      }
 
-      return true;
+          const { error: rulesError } = await supabaseAdmin
+            .from("reminder_rules")
+            .insert(defaultRules);
+
+          if (rulesError) {
+            console.error("[SignIn] Failed to create reminder rules:", rulesError);
+            // Don't fail sign-in for this, just log it
+          }
+        }
+
+        return true;
+      } catch (error) {
+        console.error("[SignIn] Unexpected error during sign-in:", error);
+        return false;
+      }
     },
 
     async jwt({ token, account }) {

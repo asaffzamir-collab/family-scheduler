@@ -8,6 +8,26 @@ import { Calendar, Shield, Bell, MessageSquare } from "lucide-react";
 function SignInContent() {
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") ?? "/dashboard";
+  const error = searchParams.get("error");
+
+  // Map NextAuth error codes to user-friendly messages
+  const errorMessages: Record<string, string> = {
+    Configuration: "There is a problem with the server configuration.",
+    AccessDenied: "You do not have permission to sign in.",
+    Verification: "The sign in link is no longer valid.",
+    OAuthSignin: "Error starting the sign-in process. Please try again.",
+    OAuthCallback: "Error during sign-in. Please try again.",
+    OAuthCreateAccount: "Could not create your account. Please contact support.",
+    EmailCreateAccount: "Could not create your account. Please contact support.",
+    Callback: "Error during sign-in. Please try again.",
+    OAuthAccountNotLinked: "This email is already associated with another account.",
+    EmailSignin: "The sign-in email could not be sent.",
+    CredentialsSignin: "Sign in failed. Check your credentials.",
+    SessionRequired: "Please sign in to access this page.",
+    Default: "An error occurred during sign-in. Please try again.",
+  };
+
+  const errorMessage = error ? errorMessages[error] || errorMessages.Default : null;
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
@@ -24,6 +44,13 @@ function SignInContent() {
             Stay on top of your family&apos;s schedule
           </p>
         </div>
+
+        {/* Error Message */}
+        {errorMessage && (
+          <div className="mb-6 p-4 rounded-lg bg-red-50 border border-red-200">
+            <p className="text-sm text-red-800">{errorMessage}</p>
+          </div>
+        )}
 
         {/* Features */}
         <div className="card mb-6">
