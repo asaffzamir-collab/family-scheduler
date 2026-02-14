@@ -1,6 +1,11 @@
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Lazy init so build (e.g. on Vercel) doesn't fail when RESEND_API_KEY is not set yet
+function getResend(): Resend | null {
+  const key = process.env.RESEND_API_KEY;
+  if (!key) return null;
+  return new Resend(key);
+}
 
 const FROM = process.env.EMAIL_FROM || "Family Scheduler <onboarding@resend.dev>";
 
@@ -14,6 +19,11 @@ interface EmailPayload {
  * Send a single email via Resend.
  */
 export async function sendEmail(payload: EmailPayload) {
+  const resend = getResend();
+  if (!resend) {
+    console.warn("[Email] RESEND_API_KEY not set, skipping send");
+    return { success: false, error: new Error("Email not configured") };
+  }
   try {
     const { data, error } = await resend.emails.send({
       from: FROM,
