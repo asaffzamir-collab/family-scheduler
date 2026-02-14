@@ -10,11 +10,6 @@ if (typeof process !== "undefined" && process.env.VERCEL === "1") {
   process.env.AUTH_TRUST_HOST = "true";
 }
 
-const baseUrl = process.env.NEXTAUTH_URL ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
-const isSecure = baseUrl.startsWith("https://");
-
-// Use standard cookie name (no __Secure- prefix) so session works reliably on Vercel.
-// Cookie is still secure via options.secure. Middleware must use secureCookie: false to match.
 export const authOptions: NextAuthOptions = {
   providers: [
     GoogleProvider({
@@ -31,19 +26,6 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   secret: process.env.NEXTAUTH_SECRET,
-  useSecureCookies: false,
-  cookies: {
-    sessionToken: {
-      name: "next-auth.session-token",
-      options: {
-        httpOnly: true,
-        sameSite: "lax",
-        path: "/",
-        secure: isSecure,
-        maxAge: 30 * 24 * 60 * 60, // 30 days
-      },
-    },
-  },
 
   callbacks: {
     async signIn({ account, profile }) {

@@ -24,7 +24,10 @@ export async function getSession(): Promise<Session | null> {
   /* ── 2. Fallback: decode JWT from cookie ────────────────────────────── */
   try {
     const cookieStore = await cookies();
-    const tokenValue = cookieStore.get("next-auth.session-token")?.value;
+    // NextAuth defaults to __Secure- prefix on HTTPS (Vercel), plain name on HTTP (localhost)
+    const tokenValue =
+      cookieStore.get("__Secure-next-auth.session-token")?.value ??
+      cookieStore.get("next-auth.session-token")?.value;
     if (!tokenValue) return null;
 
     const secret = process.env.NEXTAUTH_SECRET;
