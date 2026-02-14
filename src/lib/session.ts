@@ -70,7 +70,7 @@ export async function getSession(): Promise<Session | null> {
         image: (token.picture as string) ?? null,
       },
       expires: token.exp
-        ? new Date(token.exp * 1000).toISOString()
+        ? new Date(Number(token.exp) * 1000).toISOString()
         : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
     } as Session;
   } catch (e) {
