@@ -3,7 +3,7 @@ import { supabaseAdmin } from "@/lib/db";
 import { parseMessage } from "@/lib/parser";
 import { ensureFamilyCalendar, createGoogleEvent } from "@/lib/google-calendar";
 
-const VERIFY_TOKEN = process.env.META_WHATSAPP_VERIFY_TOKEN;
+export const dynamic = "force-dynamic";
 
 /**
  * WhatsApp webhook verification (GET).
@@ -12,15 +12,19 @@ const VERIFY_TOKEN = process.env.META_WHATSAPP_VERIFY_TOKEN;
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const mode = url.searchParams.get("hub.mode");
-  const token = url.searchParams.get("hub.verify_token");
+  const token = (url.searchParams.get("hub.verify_token") ?? "").trim();
   const challenge = url.searchParams.get("hub.challenge");
 
-  if (mode === "subscribe" && token === VERIFY_TOKEN) {
-    console.log("[WhatsApp] Webhook verified");
-    return new Response(challenge, { status: 200 });
+  const verifyToken = (process.env.META_WHATSAPP_VERIFY_TOKEN ?? "").trim();
+
+  if (mode === "subscribe" && token === verifyToken && challenge != null && challenge !== "") {
+    return new Response(String(challenge), {
+      status: 200,
+      headers: { "Content-Type": "text/plain; charset=utf-8" },
+    });
   }
 
-  return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  return new Response("Forbidden", { status: 403 });
 }
 
 /**

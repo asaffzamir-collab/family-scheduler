@@ -46,6 +46,7 @@ export default function SettingsPage() {
   const [whatsappLinked, setWhatsappLinked] = useState<boolean | null>(null);
   const [whatsappCode, setWhatsappCode] = useState<string | null>(null);
   const [whatsappCodeLoading, setWhatsappCodeLoading] = useState(false);
+  const [whatsappCodeError, setWhatsappCodeError] = useState<string | null>(null);
 
   // Fetch data and pre-load saved calendar selection (re-run when session is available so keys match)
   useEffect(() => {
@@ -130,10 +131,17 @@ export default function SettingsPage() {
   async function generateWhatsAppCode() {
     setWhatsappCodeLoading(true);
     setWhatsappCode(null);
+    setWhatsappCodeError(null);
     try {
-      const res = await fetch("/api/auth/whatsapp/code", { method: "POST" });
+      const res = await fetch("/api/auth/whatsapp/code", { method: "POST", credentials: "include" });
       const data = await res.json();
-      if (data.code) setWhatsappCode(data.code);
+      if (data.code) {
+        setWhatsappCode(data.code);
+      } else {
+        setWhatsappCodeError(data.error || (res.ok ? "No code returned" : "Request failed"));
+      }
+    } catch {
+      setWhatsappCodeError("Network error. Check connection and try again.");
     } finally {
       setWhatsappCodeLoading(false);
     }
@@ -490,6 +498,12 @@ export default function SettingsPage() {
                   </span>
                 )}
               </div>
+              {whatsappCodeError && (
+                <p className="text-xs text-red-600 mt-2">
+                  {whatsappCodeError}
+                  {whatsappCodeError.includes("Failed to generate code") && " Make sure you ran the optional migrations in Supabase (run-optional-migrations-in-supabase.sql)."}
+                </p>
+              )}
               <p className="text-xs text-gray-500">
                 Code expires in 15 minutes. Send it to our WhatsApp number (see README for setup).
               </p>

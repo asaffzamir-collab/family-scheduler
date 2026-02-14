@@ -2,6 +2,19 @@ import type { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import { supabaseAdmin } from "./db";
 
+// Ensure NEXTAUTH_URL and AUTH_TRUST_HOST are set on Vercel before any auth logic runs
+if (typeof process !== "undefined" && process.env.VERCEL === "1") {
+  if (!process.env.NEXTAUTH_URL && process.env.VERCEL_URL) {
+    process.env.NEXTAUTH_URL = `https://${process.env.VERCEL_URL}`;
+  }
+  process.env.AUTH_TRUST_HOST = "true";
+}
+
+const baseUrl = process.env.NEXTAUTH_URL ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+const isSecure = baseUrl.startsWith("https://");
+
+// Use standard cookie name (no __Secure- prefix) so session works reliably on Vercel.
+// Cookie is still secure via options.secure. Middleware must use secureCookie: false to match.
 export const authOptions: NextAuthOptions = {
   providers: [
     GoogleProvider({
@@ -18,6 +31,19 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   secret: process.env.NEXTAUTH_SECRET,
+  useSecureCookies: false,
+  cookies: {
+    sessionToken: {
+      name: "next-auth.session-token",
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: isSecure,
+        maxAge: 30 * 24 * 60 * 60, // 30 days
+      },
+    },
+  },
 
   callbacks: {
     async signIn({ account, profile }) {
@@ -113,17 +139,22 @@ export const authOptions: NextAuthOptions = {
       }
       // Fetch user id and family_id from DB
       if (token.email) {
-        const { data: user } = await supabaseAdmin
-          .from("users")
-          .select("id, family_id, google_access_token, google_refresh_token")
-          .eq("email", token.email)
-          .limit(1)
-          .single();
-        if (user) {
-          token.userId = user.id;
-          token.familyId = user.family_id;
-          token.accessToken = user.google_access_token;
-          token.refreshToken = user.google_refresh_token;
+        try {
+          const { data: user } = await supabaseAdmin
+            .from("users")
+            .select("id, family_id, google_access_token, google_refresh_token")
+            .eq("email", token.email)
+            .limit(1)
+            .single();
+          if (user) {
+            token.userId = user.id;
+            token.familyId = user.family_id;
+            token.accessToken = user.google_access_token;
+            token.refreshToken = user.google_refresh_token;
+          }
+        } catch (e) {
+          console.error("[JWT callback] Supabase query failed:", e);
+          // Don't throw — keep whatever data is already in the token
         }
       }
       return token;

@@ -174,7 +174,26 @@ Open http://localhost:3000 in your browser. You should see the sign-in page with
 3. Allow the permissions (calendar access).
 4. You should be redirected to the Setup Wizard.
 
-If you see an error: check that your Google OAuth redirect URI matches exactly `http://localhost:3000/api/auth/callback/google`.
+**If you see "Error 400: redirect_uri_mismatch":**
+
+1. **Where are you signing in?**
+   - **Local:** You must use `http://localhost:3000` (or the exact URL/port you open in the browser).
+   - **Production (e.g. Vercel):** Use your live URL, e.g. `https://your-app.vercel.app` (no trailing slash).
+
+2. **Set `NEXTAUTH_URL`** in `.env.local` (local) or in Vercel → Settings → Environment Variables:
+   - Local: `NEXTAUTH_URL=http://localhost:3000`
+   - Production: `NEXTAUTH_URL=https://your-app.vercel.app`
+
+3. **Add the exact redirect URI in Google Cloud Console:**
+   - Go to [Google Cloud Console](https://console.cloud.google.com) → your project → **APIs & Services** → **Credentials**.
+   - Open your **OAuth 2.0 Client ID** (Web application).
+   - Under **Authorized redirect URIs**, add **exactly** (no trailing slash):
+     - Local: `http://localhost:3000/api/auth/callback/google`
+     - Production: `https://your-app.vercel.app/api/auth/callback/google`
+   - If you use both local and production, add **both** URIs.
+   - Click **Save**.
+
+4. Restart the dev server after changing `.env.local`; redeploy after changing Vercel env or Google redirect URIs.
 
 ---
 
